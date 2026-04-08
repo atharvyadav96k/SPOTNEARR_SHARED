@@ -1,9 +1,9 @@
 package app
 
-import env "github.com/atharvyadav96k/SPOTNEARR_SHARED/app/Env"
+import "github.com/atharvyadav96k/SPOTNEARR_SHARED/app/env"
 
 func Init() *App {
 	return &App{
-		Env: env.Init(),
+		Env: *env.Init(),
 	}
 }

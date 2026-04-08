@@ -1,7 +1,7 @@
 package app
 
-import env "github.com/atharvyadav96k/SPOTNEARR_SHARED/app/Env"
+import "github.com/atharvyadav96k/SPOTNEARR_SHARED/app/env"
 
 type App struct {
-	Env *env.Env
+	Env env.Env
 }
