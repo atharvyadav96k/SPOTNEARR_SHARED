@@ -1,0 +1,19 @@
+{
+  "test_cases": [
+    {
+      "name": "simple_struct",
+      "input": {"name": "test", "value": 42},
+      "expected_json": "{\"name\":\"test\",\"value\":42}"
+    },
+    {
+      "name": "empty_struct",
+      "input": {"name": "", "value": 0},
+      "expected_json": "{\"name\":\"\",\"value\":0}"
+    },
+    {
+      "name": "nested_struct",
+      "input": {"name": "nested", "value": 1, "nested": {"key": "value"}},
+      "expected_json": "{\"name\":\"nested\",\"value\":1,\"nested\":{\"key\":\"value\"}}"
+    }
+  ]
+}
