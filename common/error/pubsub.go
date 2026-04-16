@@ -1,4 +1,4 @@
-package bus_error
+package common_error
 
 import "errors"
 

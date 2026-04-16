@@ -6,7 +6,7 @@ import (
 	"github.com/atharvyadav96k/gcp/common"
 )
 
-func Send(w http.ResponseWriter, status string, message string, data interface{}) {
+func Send(w http.ResponseWriter, status int, message string, data interface{}) {
 	response := Response{
 		Status:  status,
 		Message: message,
