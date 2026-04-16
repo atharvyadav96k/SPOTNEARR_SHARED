@@ -7,6 +7,8 @@ import (
 	"reflect"
 	"strings"
 	"unicode"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 func ValidateStruct(s interface{}) []error {
@@ -92,6 +94,19 @@ func (p *Password) Validate() error {
 		return errors.New("password must contain at least one uppercase letter, one lowercase letter, and one number")
 	}
 
+	return nil
+}
+
+func (p *Password) HashPassword() error {
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(*p), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	newPassword, err := NewPassword(string(hashedPassword))
+	if err != nil {
+		return err
+	}
+	*p = Password(newPassword)
 	return nil
 }
 
