@@ -3,7 +3,7 @@ package res
 import (
 	"net/http"
 
-	"github.com/atharvyadav96k/SPOTNEARR_SHARED/common"
+	"github.com/atharvyadav96k/gcp/common"
 )
 
 func Send(w http.ResponseWriter, status string, message string, data interface{}) {

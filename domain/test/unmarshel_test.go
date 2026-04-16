@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/atharvyadav96k/SPOTNEARR_SHARED/common"
+	"github.com/atharvyadav96k/gcp/common"
 )
 
 type TestStruct struct {
