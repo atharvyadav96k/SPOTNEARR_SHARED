@@ -36,6 +36,47 @@ go get gorm.io/gorm
 
 Initialize the Neon service in your application startup (typically in `main.go`):
 
+#### Option 1: Direct Initialization (Recommended)
+
+Using the App wrapper for convenient access to all database operations:
+
+```go
+package main
+
+import (
+	"context"
+	"github.com/atharvyadav96k/gcp/app"
+)
+
+func main() {
+	// Initialize the app
+	appInstance := new(app.App).Init()
+	defer appInstance.Close()
+	
+	// Initialize Neon database
+	if err := appInstance.InitNeon(); err != nil {
+		panic(err)
+	}
+	
+	// Register all models and run migrations (once at startup)
+	appInstance.RegisterModels(&User{}, &Product{}, &Order{})
+	
+	ctx := context.Background()
+	
+	// Now you can use convenient app wrapper functions
+	var users []User
+	appInstance.GetRecords(ctx, &users)
+	
+	// Or access the Neon service directly for advanced operations
+	neonService := appInstance.GetNeonService()
+	neonService.FindAll(ctx, &users)
+}
+```
+
+#### Option 2: Direct Service Initialization
+
+If you prefer to work directly with the Neon service:
+
 ```go
 package main
 
@@ -63,7 +104,167 @@ func main() {
 
 ## Available Methods
 
-### Initialization Methods
+### App Wrapper Convenience Functions
+
+The `App` struct in the `github.com/atharvyadav96k/gcp/app` package provides convenient wrapper methods for common Neon operations:
+
+#### RegisterModels
+Register models for auto-migration.
+
+```go
+appInstance.RegisterModels(&User{}, &Product{}, &Order{})
+```
+
+#### CreateRecord
+Create a single record with optional validation.
+
+```go
+user := &User{Name: "John", Email: "john@example.com"}
+err := appInstance.CreateRecord(ctx, user, nil)
+
+// With validation
+err := appInstance.CreateRecord(ctx, user, func() error {
+	if user.Email == "" {
+		return fmt.Errorf("email is required")
+	}
+	return nil
+})
+```
+
+#### CreateRecords
+Create multiple records in batches.
+
+```go
+users := []User{{Name: "John"}, {Name: "Jane"}}
+err := appInstance.CreateRecords(ctx, users, 100) // batch size of 100
+```
+
+#### GetRecord
+Retrieve a single record by ID.
+
+```go
+var user User
+err := appInstance.GetRecord(ctx, &user, userID)
+```
+
+#### GetRecords
+Retrieve all records with optional conditions.
+
+```go
+var users []User
+err := appInstance.GetRecords(ctx, &users)
+
+// With conditions
+var activeUsers []User
+err := appInstance.GetRecords(ctx, &activeUsers, "status = ?", "active")
+```
+
+#### GetOne
+Retrieve a single record matching conditions.
+
+```go
+var user User
+err := appInstance.GetOne(ctx, &user, "email = ?", "john@example.com")
+```
+
+#### UpdateRecord
+Update a record by ID.
+
+```go
+user := &User{ID: 1, Name: "Updated Name"}
+err := appInstance.UpdateRecord(ctx, user, 1)
+```
+
+#### UpdateRecords
+Update multiple records matching conditions.
+
+```go
+err := appInstance.UpdateRecords(ctx,
+	map[string]interface{}{"status": "inactive"},
+	"created_at < ?", time.Now().AddDate(0, -1, 0))
+```
+
+#### DeleteRecord
+Delete a record by ID.
+
+```go
+err := appInstance.DeleteRecord(ctx, &User{}, userID)
+```
+
+#### SoftDeleteRecord
+Mark a record as deleted without removing it (if model has DeletedAt field).
+
+```go
+err := appInstance.SoftDeleteRecord(ctx, &User{}, userID)
+```
+
+#### UpsertRecords
+Perform bulk insert or update operations.
+
+```go
+records := []User{{ID: 1, Name: "John"}, {ID: 2, Name: "Jane"}}
+err := appInstance.UpsertRecords(ctx, records)
+```
+
+#### FindOrCreateRecord
+Retrieve or create a record in one operation.
+
+```go
+var user User
+created, err := appInstance.FindOrCreateRecord(ctx, &user,
+	func() error {
+		user.Status = "active"
+		return nil
+	},
+	"email = ?", "john@example.com")
+```
+
+#### FindAndUpdateRecord
+Retrieve and update a record in one operation.
+
+```go
+var user User
+err := appInstance.FindAndUpdateRecord(ctx, &user,
+	func() error {
+		user.Status = "inactive"
+		return nil
+	},
+	"id = ?", userID)
+```
+
+#### TypeSafeInnerJoin / TypeSafeLeftJoin / TypeSafeRightJoin
+Create type-safe join builders (recommended approach).
+
+```go
+var results []struct {
+	UserID   uint
+	UserName string
+	OrderID  uint
+	Amount   float64
+}
+
+err := appInstance.TypeSafeInnerJoin(&Order{}).
+	On(&User{}, "ID", "UserID").
+	Select(map[interface{}][]string{
+		&User{}: {"ID", "Name"},
+		&Order{}: {"ID", "Amount"},
+	}).
+	Execute(appInstance.GetNeonService(), ctx, &results, "orders.status = ?", "completed")
+```
+
+#### GetNeonService
+Get the Neon service for direct access when needed.
+
+```go
+neonService := appInstance.GetNeonService()
+err := neonService.FindAll(ctx, &users)
+```
+
+---
+
+### Direct Neon Service Methods
+
+If you're working directly with the Neon service (bypassing the App wrapper), use these methods:
 
 #### InitDB
 Initializes the database connection using the `GCP_NEON_DATABASE_URL` environment variable.
@@ -89,8 +290,6 @@ defer neonService.Close()
 ```
 
 ---
-
-### CRUD Operations
 
 #### Create
 Creates a single record.
@@ -236,124 +435,6 @@ err := neonService.BulkUpsert(ctx, records, "email")
 ---
 
 ### Join Operations
-
-#### InnerJoin
-Performs an INNER JOIN and returns results.
-
-```go
-var results []struct {
-	UserID   uint
-	UserName string
-	OrderID  uint
-	Amount   float64
-}
-
-err := neonService.InnerJoin(ctx, &results,
-	"orders ON users.id = orders.user_id",
-	[]string{"users.id", "users.name", "orders.id as order_id", "orders.amount"},
-	"orders.status = ?", "completed")
-```
-
-#### LeftJoin
-Performs a LEFT JOIN and returns results. Includes non-matching rows from left table.
-
-```go
-var userOrders []struct {
-	UserName  string
-	OrderID   sql.NullInt64
-	Amount    sql.NullFloat64
-}
-
-err := neonService.LeftJoin(ctx, &userOrders,
-	"orders ON users.id = orders.user_id",
-	[]string{"users.name", "orders.id as order_id", "orders.amount"},
-	"users.status = ?", "active")
-```
-
-**Note:** Use `sql.NullInt64`, `sql.NullFloat64`, etc. for optional columns from the joined table.
-
-#### RightJoin
-Performs a RIGHT JOIN and returns results.
-
-```go
-err := neonService.RightJoin(ctx, &results,
-	"orders ON users.id = orders.user_id",
-	[]string{"users.id", "users.name", "orders.amount"})
-```
-
-#### MultiJoin
-Performs multiple JOINs in a single query.
-
-```go
-var results []struct {
-	UserName    string
-	ProductName string
-	Quantity    int
-}
-
-joins := []neon.JoinInfo{
-	{Type: "INNER", Condition: "orders ON users.id = orders.user_id"},
-	{Type: "INNER", Condition: "order_items ON orders.id = order_items.order_id"},
-	{Type: "INNER", Condition: "products ON order_items.product_id = products.id"},
-}
-
-err := neonService.MultiJoin(ctx, &results, joins,
-	[]string{"users.name", "products.name", "order_items.quantity"},
-	"orders.status = ?", "completed")
-```
-
-#### JoinWithOrder
-Performs a JOIN with specific ordering.
-
-```go
-var userOrders []struct {
-	UserName string
-	OrderID  uint
-	Amount   float64
-}
-
-err := neonService.JoinWithOrder(ctx, &userOrders,
-	"LEFT",
-	"orders ON users.id = orders.user_id",
-	[]string{"users.name", "orders.id as order_id", "orders.amount"},
-	"orders.created_at DESC",
-	"users.status = ?", "active")
-```
-
----
-
-### Type-Safe Join Builder (Recommended)
-
-The type-safe join builder uses struct fields instead of hardcoded strings. This provides compile-time safety and automatic column name resolution using reflection.
-
-#### NewInnerJoinBuilder
-Creates a join builder for INNER JOIN operations.
-
-```go
-builder := neonService.NewInnerJoinBuilder(&Order{})
-```
-
-#### NewLeftJoinBuilder
-Creates a join builder for LEFT JOIN operations.
-
-```go
-builder := neonService.NewLeftJoinBuilder(&Order{})
-```
-
-#### NewRightJoinBuilder
-Creates a join builder for RIGHT JOIN operations.
-
-```go
-builder := neonService.NewRightJoinBuilder(&Order{})
-```
-
-#### On
-Sets the join condition using struct field names instead of raw SQL.
-
-**Signature:**
-```go
-func (jb *JoinBuilder) On(leftModel interface{}, leftField, rightField string) *JoinBuilder
-```
 
 **Parameters:**
 - `leftModel`: the left side model (e.g., `&User{}`)

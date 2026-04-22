@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/atharvyadav96k/gcp/app/models/firestore"
+	"github.com/atharvyadav96k/gcp/app/models/neon"
 	"github.com/atharvyadav96k/gcp/app/models/pubsub"
 	"github.com/atharvyadav96k/gcp/app/models/secrets"
 )
@@ -21,7 +22,7 @@ func (a *App) InitEnvironmentVariables() {
 	a.Env = *secrets.NewSecrets()
 }
 
-// Init initializes the App dependencies (Firestore and PubSub).
+// Init initializes the App dependencies (Firestore, PubSub, and Neon).
 //
 // NOTE:
 // This function RETURNS a new App instance. Make sure you use the returned value,
@@ -34,6 +35,7 @@ func (a *App) Init() *App {
 	return &App{
 		FireStore: &firestore.Service{},
 		PubSub:    &pubsub.Service{},
+		Neon:      &neon.Service{},
 	}
 }
 
@@ -99,8 +101,27 @@ func (a *App) InitPubSub(ctx context.Context, projectId string) error {
 	return nil
 }
 
+// InitNeon initializes the Neon PostgreSQL database connection.
+// It uses the GCP_NEON_DATABASE_URL environment variable.
+//
+// Returns:
+//   - error if initialization fails
+//
+// Example:
+//
+//	err := app.InitNeon()
+func (a *App) InitNeon() error {
+	if a.Neon == nil {
+		a.Neon = &neon.Service{}
+	}
+
+	// Initialize the database connection
+	a.Neon = neon.InitDB(a.Neon)
+	return nil
+}
+
 // Close gracefully closes all initialized external service clients
-// such as Firestore and Pub/Sub.
+// such as Firestore, Pub/Sub, and Neon.
 //
 // It should be called during application shutdown to release resources.
 //
@@ -117,6 +138,12 @@ func (a *App) Close() {
 	if a.PubSub != nil {
 		if err := a.PubSub.Close(); err != nil {
 			fmt.Printf("Error closing PubSub client: %v\n", err)
+		}
+	}
+
+	if a.Neon != nil {
+		if err := a.Neon.Close(); err != nil {
+			fmt.Printf("Error closing Neon client: %v\n", err)
 		}
 	}
 }
