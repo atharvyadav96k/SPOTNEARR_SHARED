@@ -16,12 +16,12 @@ import (
 // Example:
 //
 //	app.RegisterModels(&User{}, &Product{}, &Order{})
-func (a *App) RegisterModels(models ...interface{}) {
+func (a *App) RegisterModels(models ...interface{}) error {
 	if a.Neon == nil {
 		fmt.Println("Warning: Neon service not initialized")
-		return
+		return nil
 	}
-	a.Neon.RegisterAndMigrate(models...)
+	return a.Neon.RegisterAndMigrate(models...)
 }
 
 // CreateRecord creates a single record in the database with validation.

@@ -39,16 +39,11 @@ func InitDB(s *Service) *Service {
 //
 //	neonService := neon.InitDB(&neon.Service{})
 //	neonService.RegisterAndMigrate(&User{}, &Product{})
-func (s *Service) RegisterAndMigrate(models ...interface{}) {
+func (s *Service) RegisterAndMigrate(models ...interface{}) error {
 	db := s.GetDB()
 
 	log.Printf("Starting migration for %d models...", len(models))
-	err := db.AutoMigrate(models...)
-	if err != nil {
-		log.Fatalf("Migration failed: %v", err)
-	}
-
-	log.Println("Migration complete on Neon Console")
+	return db.AutoMigrate(models...)
 }
 
 // Close shuts down the database connection and releases underlying resources.
